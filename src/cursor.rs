@@ -423,18 +423,21 @@ mod test {
         let db = env.create_db(None, DUP_SORT | DUP_FIXED).unwrap();
 
         let mut txn = env.begin_rw_txn().unwrap();
-        txn.put(db, b"key1", b"val1", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key1", b"val2", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key1", b"val3", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key2", b"val4", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key2", b"val5", WriteFlags::empty()).unwrap();
-        txn.put(db, b"key2", b"val6", WriteFlags::empty()).unwrap();
+        let mut cursor = txn.open_rw_cursor(db).unwrap();
+        cursor.put(b"key1", b"val1", WriteFlags::empty()).unwrap();
+        cursor.put(b"key1", b"val2", WriteFlags::empty()).unwrap();
+        cursor.put(b"key1", b"val3", WriteFlags::empty()).unwrap();
+        cursor.put(b"key2", b"val4", WriteFlags::empty()).unwrap();
+        cursor.put(b"key2", b"val5", WriteFlags::empty()).unwrap();
+        cursor.put(b"key2", b"val6", WriteFlags::empty()).unwrap();
+        cursor.put_multiple(b"key3", &[b"val1", b"val2"], WriteFlags::empty()).unwrap();
 
-        let cursor = txn.open_ro_cursor(db).unwrap();
         assert_eq!((Some(&b"key1"[..]), &b"val1"[..]),
                    cursor.get(None, None, MDB_FIRST).unwrap());
         assert_eq!((None, &b"val1val2val3"[..]),
                    cursor.get(None, None, MDB_GET_MULTIPLE).unwrap());
+        assert_eq!((None, &b"val1val2"[..]),
+                   cursor.get(None, None, MDB_NEXT_MULTIPLE).unwrap());
         assert!(cursor.get(None, None, MDB_NEXT_MULTIPLE).is_err());
     }
 
