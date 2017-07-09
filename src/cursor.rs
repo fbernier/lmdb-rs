@@ -1,5 +1,5 @@
 use libc::{c_void, size_t, c_uint};
-use std::{fmt, ptr, result, slice};
+use std::{fmt, ptr, result, slice, mem};
 use std::marker::PhantomData;
 
 use database::Database;
@@ -185,6 +185,31 @@ impl <'txn> RwCursor<'txn> {
                                             &mut key_val,
                                             &mut data_val,
                                             flags.bits()))
+        }
+    }
+
+    /// Puts a key/data pair into the database. The cursor will be positioned at
+    /// the new data item, or on failure usually near it.
+    pub fn put_multiple<K, D>(&mut self, key: &K, data: &[D], flags: WriteFlags) -> Result<()>
+    where K: AsRef<[u8]>, D: AsRef<[u8]> {
+        let key = key.as_ref();
+        let data = data.as_ref();
+        let mut key_val: ffi::MDB_val = ffi::MDB_val { mv_size: key.len() as size_t,
+                                                       mv_data: key.as_ptr() as *mut c_void };
+        let mut data_val = [ ffi::MDB_val {
+            mv_size: mem::size_of::<D>() as size_t,
+            mv_data: data.as_ptr() as *mut c_void
+        }, ffi::MDB_val {
+            mv_size: data.len() as size_t,
+            mv_data: ptr::null_mut(),
+        }];
+
+
+        unsafe {
+            lmdb_result(ffi::mdb_cursor_put(self.cursor(),
+                                            &mut key_val,
+                                            data_val.as_mut_ptr(),
+                                            flags.bits() | ffi::MDB_MULTIPLE))
         }
     }
 
